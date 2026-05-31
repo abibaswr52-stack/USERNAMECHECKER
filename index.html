@@ -8,323 +8,79 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root {
-    --bg:       #0a0a0f;
-    --surface:  #12121a;
-    --card:     #1a1a26;
-    --border:   #2a2a3d;
-    --accent:   #7c6bff;
-    --accent2:  #ff6b9d;
-    --green:    #4ade80;
-    --red:      #f87171;
-    --text:     #e8e8f0;
-    --muted:    #6b6b8a;
-    --glow:     rgba(124,107,255,0.25);
+    --bg:#0a0a0f;--surface:#12121a;--card:#1a1a26;--border:#2a2a3d;
+    --accent:#7c6bff;--accent2:#ff6b9d;--green:#4ade80;--red:#f87171;
+    --text:#e8e8f0;--muted:#6b6b8a;--glow:rgba(124,107,255,0.25);
   }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;padding-bottom:40px;}
+  body::before{content:'';position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(124,107,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(124,107,255,.04) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;}
+  .wrap{position:relative;z-index:1;max-width:420px;margin:0 auto;padding:0 16px;}
+  header{padding:28px 0 20px;display:flex;align-items:center;gap:12px;}
+  .logo-box{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:12px;display:grid;place-items:center;font-size:22px;box-shadow:0 0 20px var(--glow);}
+  header h1{font-size:22px;font-weight:800;letter-spacing:-.5px;}
+  header span{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);display:block;margin-top:2px;}
 
-  * { margin:0; padding:0; box-sizing:border-box; }
+  /* connection badge */
+  .conn-badge{display:flex;align-items:center;gap:7px;background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:20px;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);}
+  .conn-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s;}
+  .conn-dot.ok{background:var(--green);box-shadow:0 0 6px var(--green);}
+  .conn-dot.err{background:var(--red);}
+  .conn-badge b{color:var(--text);}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Syne', sans-serif;
-    min-height: 100vh;
-    overflow-x: hidden;
-    padding-bottom: 40px;
-  }
-
-  /* ── Сетчатый фон ── */
-  body::before {
-    content:'';
-    position:fixed; inset:0; z-index:0;
-    background-image:
-      linear-gradient(rgba(124,107,255,.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(124,107,255,.04) 1px, transparent 1px);
-    background-size: 32px 32px;
-    pointer-events:none;
-  }
-
-  .wrap { position:relative; z-index:1; max-width:420px; margin:0 auto; padding:0 16px; }
-
-  /* ── Header ── */
-  header {
-    padding: 28px 0 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .logo-box {
-    width: 44px; height: 44px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    border-radius: 12px;
-    display: grid; place-items: center;
-    font-size: 22px;
-    box-shadow: 0 0 20px var(--glow);
-  }
-  header h1 {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: -.5px;
-  }
-  header span {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    display: block;
-    margin-top: 2px;
-  }
-
-  /* ── Секция длины ── */
-  .section-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 10px;
-  }
-
-  .length-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 20px;
-  }
-  .len-btn {
-    background: var(--card);
-    border: 1.5px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 0;
-    cursor: pointer;
-    transition: all .2s;
-    text-align: center;
-    font-family: 'Space Mono', monospace;
-  }
-  .len-btn .num {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text);
-    display: block;
-  }
-  .len-btn .lbl {
-    font-size: 10px;
-    color: var(--muted);
-    display: block;
-    margin-top: 2px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  .len-btn.active {
-    border-color: var(--accent);
-    background: rgba(124,107,255,.15);
-    box-shadow: 0 0 18px var(--glow);
-  }
-  .len-btn.active .num { color: var(--accent); }
-
-  /* ── Кнопки действий ── */
-  .actions { display: flex; gap: 8px; margin-bottom: 20px; }
-  .btn {
-    flex: 1;
-    padding: 14px;
-    border-radius: 12px;
-    border: none;
-    cursor: pointer;
-    font-family: 'Syne', sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    transition: all .2s;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-  }
-  .btn-primary {
-    background: linear-gradient(135deg, var(--accent), #5b4fe8);
-    color: #fff;
-    box-shadow: 0 4px 20px var(--glow);
-  }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px var(--glow); }
-  .btn-primary:active { transform: translateY(0); }
-  .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; }
-
-  .btn-stop {
-    background: var(--card);
-    border: 1.5px solid var(--border);
-    color: var(--red);
-  }
-  .btn-stop:hover { border-color: var(--red); background: rgba(248,113,113,.1); }
-  .btn-stop:disabled { opacity: .35; cursor: not-allowed; }
-
-  .btn-one {
-    background: var(--card);
-    border: 1.5px solid var(--border);
-    color: var(--text);
-    flex: 0 0 auto;
-    padding: 14px 18px;
-  }
-  .btn-one:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-one:disabled { opacity: .35; cursor: not-allowed; }
-
-  /* ── Статус-бар ── */
-  .status-bar {
-    background: var(--card);
-    border: 1.5px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 16px;
-    display: flex; align-items: center; gap: 10px;
-    margin-bottom: 20px;
-    font-family: 'Space Mono', monospace;
-    font-size: 12px;
-  }
-  .status-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--muted);
-    flex-shrink: 0;
-    transition: background .3s;
-  }
-  .status-dot.running { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.5s infinite; }
-  .status-dot.scanning { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 1s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  .status-text { color: var(--muted); flex:1; }
-  .status-text b { color: var(--text); }
-
-  /* ── Счётчики ── */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 20px;
-  }
-  .stat-card {
-    background: var(--card);
-    border: 1.5px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 10px;
-    text-align: center;
-  }
-  .stat-card .val {
-    font-family: 'Space Mono', monospace;
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--accent);
-    display: block;
-  }
-  .stat-card .key {
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    display: block;
-    margin-top: 4px;
-  }
-
-  /* ── Лента результатов ── */
-  .results-label {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 10px;
-  }
-  .clear-btn {
-    background: none; border: none; color: var(--muted);
-    font-size: 11px; font-family: 'Space Mono', monospace;
-    cursor: pointer; letter-spacing: 1px;
-    transition: color .2s;
-  }
-  .clear-btn:hover { color: var(--red); }
-
-  .feed { display: flex; flex-direction: column; gap: 8px; }
-
-  .nick-card {
-    background: var(--card);
-    border: 1.5px solid var(--green);
-    border-radius: 12px;
-    padding: 14px 16px;
-    display: flex; align-items: center; gap: 12px;
-    animation: slideIn .3s ease;
-    box-shadow: 0 0 16px rgba(74,222,128,.1);
-  }
-  @keyframes slideIn {
-    from { opacity:0; transform:translateY(-8px); }
-    to   { opacity:1; transform:translateY(0); }
-  }
-  .nick-icon {
-    width: 36px; height: 36px;
-    border-radius: 10px;
-    background: rgba(74,222,128,.15);
-    display: grid; place-items: center;
-    font-size: 18px;
-    flex-shrink: 0;
-  }
-  .nick-info { flex: 1; min-width: 0; }
-  .nick-name {
-    font-family: 'Space Mono', monospace;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--green);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .nick-link {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 2px;
-    display: block;
-  }
-  .nick-time {
-    font-family: 'Space Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    flex-shrink: 0;
-  }
-  .copy-btn {
-    background: rgba(124,107,255,.15);
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-size: 12px;
-    cursor: pointer;
-    font-family: 'Space Mono', monospace;
-    transition: all .15s;
-    flex-shrink: 0;
-  }
-  .copy-btn:hover { background: var(--accent); color: #fff; }
-  .copy-btn.copied { background: var(--green); border-color: var(--green); color: #000; }
-
-  .empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--muted);
-    font-family: 'Space Mono', monospace;
-    font-size: 12px;
-    border: 1.5px dashed var(--border);
-    border-radius: 12px;
-  }
-  .empty-state div { font-size: 32px; margin-bottom: 12px; }
-
-  /* ── Toast ── */
-  .toast {
-    position: fixed;
-    bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
-    background: var(--accent);
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 700;
-    z-index: 999;
-    transition: transform .3s ease;
-    white-space: nowrap;
-  }
-  .toast.show { transform: translateX(-50%) translateY(0); }
-
-  /* ── Разделитель ── */
-  .divider {
-    height: 1px;
-    background: var(--border);
-    margin: 4px 0 20px;
-  }
+  .section-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .length-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;}
+  .len-btn{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:14px 0;cursor:pointer;transition:all .2s;text-align:center;font-family:'Space Mono',monospace;}
+  .len-btn .num{font-size:22px;font-weight:700;color:var(--text);display:block;}
+  .len-btn .lbl{font-size:10px;color:var(--muted);display:block;margin-top:2px;letter-spacing:1px;text-transform:uppercase;}
+  .len-btn.active{border-color:var(--accent);background:rgba(124,107,255,.15);box-shadow:0 0 18px var(--glow);}
+  .len-btn.active .num{color:var(--accent);}
+  .actions{display:flex;gap:8px;margin-bottom:20px;}
+  .btn{flex:1;padding:14px;border-radius:12px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),#5b4fe8);color:#fff;box-shadow:0 4px 20px var(--glow);}
+  .btn-primary:hover{transform:translateY(-1px);}
+  .btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+  .btn-stop{background:var(--card);border:1.5px solid var(--border);color:var(--red);}
+  .btn-stop:hover{border-color:var(--red);background:rgba(248,113,113,.1);}
+  .btn-stop:disabled{opacity:.35;cursor:not-allowed;}
+  .btn-one{background:var(--card);border:1.5px solid var(--border);color:var(--text);flex:0 0 auto;padding:14px 18px;}
+  .btn-one:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-one:disabled{opacity:.35;cursor:not-allowed;}
+  .status-bar{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;font-family:'Space Mono',monospace;font-size:12px;}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s;}
+  .status-dot.running{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.5s infinite;}
+  .status-dot.scanning{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .status-text{color:var(--muted);flex:1;}
+  .status-text b{color:var(--text);}
+  .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;}
+  .stat-card{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;}
+  .stat-card .val{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--accent);display:block;}
+  .stat-card .key{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-top:4px;}
+  .results-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .clear-btn{background:none;border:none;color:var(--muted);font-size:11px;font-family:'Space Mono',monospace;cursor:pointer;letter-spacing:1px;transition:color .2s;}
+  .clear-btn:hover{color:var(--red);}
+  .feed{display:flex;flex-direction:column;gap:8px;}
+  .nick-card{background:var(--card);border:1.5px solid var(--green);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:slideIn .3s ease;box-shadow:0 0 16px rgba(74,222,128,.1);}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  .nick-icon{width:36px;height:36px;border-radius:10px;background:rgba(74,222,128,.15);display:grid;place-items:center;font-size:18px;flex-shrink:0;}
+  .nick-info{flex:1;min-width:0;}
+  .nick-name{font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .nick-link{font-size:11px;color:var(--muted);margin-top:2px;display:block;}
+  .nick-time{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);flex-shrink:0;}
+  .copy-btn{background:rgba(124,107,255,.15);border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:'Space Mono',monospace;transition:all .15s;flex-shrink:0;}
+  .copy-btn:hover{background:var(--accent);color:#fff;}
+  .copy-btn.copied{background:var(--green);border-color:var(--green);color:#000;}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-family:'Space Mono',monospace;font-size:12px;border:1.5px dashed var(--border);border-radius:12px;}
+  .empty-state div{font-size:32px;margin-bottom:12px;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--accent);color:#fff;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:700;z-index:999;transition:transform .3s ease;white-space:nowrap;}
+  .toast.show{transform:translateX(-50%) translateY(0);}
+  .divider{height:1px;background:var(--border);margin:4px 0 20px;}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <!-- Header -->
   <header>
     <div class="logo-box">🔎</div>
     <div>
@@ -332,6 +88,12 @@
       <span>TELEGRAM USERNAME FINDER</span>
     </div>
   </header>
+
+  <!-- Статус подключения к бэкенду -->
+  <div class="conn-badge">
+    <div class="conn-dot" id="connDot"></div>
+    <span id="connText">Подключение к серверу...</span>
+  </div>
 
   <!-- Длина -->
   <div class="section-label">Длина ника</div>
@@ -350,8 +112,8 @@
   <!-- Кнопки -->
   <div class="actions">
     <button class="btn btn-primary" id="btnStart" onclick="startSearch()">▶ Запустить</button>
-    <button class="btn btn-stop" id="btnStop" onclick="stopSearch()" disabled>⏹ Стоп</button>
-    <button class="btn btn-one" id="btnOne" onclick="findOne()" title="Найти один">🔍</button>
+    <button class="btn btn-stop"    id="btnStop"  onclick="stopSearch()" disabled>⏹ Стоп</button>
+    <button class="btn btn-one"     id="btnOne"   onclick="findOne()" title="Найти один">🔍</button>
   </div>
 
   <!-- Статус -->
@@ -362,23 +124,13 @@
 
   <!-- Статистика -->
   <div class="stats-row">
-    <div class="stat-card">
-      <span class="val" id="statChecked">0</span>
-      <span class="key">Проверено</span>
-    </div>
-    <div class="stat-card">
-      <span class="val" id="statFound">0</span>
-      <span class="key">Найдено</span>
-    </div>
-    <div class="stat-card">
-      <span class="val" id="statTime">0с</span>
-      <span class="key">Время</span>
-    </div>
+    <div class="stat-card"><span class="val" id="statChecked">0</span><span class="key">Проверено</span></div>
+    <div class="stat-card"><span class="val" id="statFound">0</span><span class="key">Найдено</span></div>
+    <div class="stat-card"><span class="val" id="statTime">0с</span><span class="key">Время</span></div>
   </div>
 
   <div class="divider"></div>
 
-  <!-- Лента -->
   <div class="results-label">
     <div class="section-label" style="margin:0">Свободные ники</div>
     <button class="clear-btn" onclick="clearFeed()">очистить</button>
@@ -388,229 +140,184 @@
   </div>
 
 </div>
-
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Telegram WebApp init ──
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-// ── Состояние ──
-let selectedLen = 5;
-let isRunning = false;
-let isFindingOne = false;
-let searchTimer = null;
-let sessionTimer = null;
-let sessionSecs = 0;
-let checked = 0;
-let found = 0;
+// !! Сюда вставь свой Render URL после деплоя
+// Пример: "https://nick-checker.onrender.com"
+const BACKEND = "https://usernamechecker-1.onrender.com";
 
-const VOWELS     = [...'aeiou'];
-const CONSONANTS = [...'bcdfghjklmnprstvwxyz'];
-const SOFT_PAIRS = [
-  'ar','er','or','an','en','on','al','el','ol',
-  'ra','re','ro','na','ne','no','la','le','lo',
-  'ma','me','mo','sa','se','so','ta','te','to',
-  'va','ve','vo','ka','ke','ko','da','de','do',
-  'ba','be','bo','fa','fe','fo','ga','ge','go',
-];
+let selectedLen  = 5;
+let isRunning    = false;
+let isFindingOne = false;
+let sessionTimer = null;
+let sessionSecs  = 0;
+let checked = 0, found = 0;
+
+// ── Проверка подключения при загрузке ──
+async function pingBackend() {
+  const dot  = document.getElementById('connDot');
+  const text = document.getElementById('connText');
+  try {
+    const r = await fetch(BACKEND + '/health', { signal: AbortSignal.timeout(6000) });
+    const j = await r.json();
+    if (j.status === 'ok') {
+      dot.className  = 'conn-dot ok';
+      text.innerHTML = '<b>Сервер подключён</b> · Telegram API активен';
+    } else {
+      throw new Error();
+    }
+  } catch {
+    dot.className  = 'conn-dot err';
+    text.innerHTML = '<b>Нет соединения с сервером</b>';
+  }
+}
+pingBackend();
 
 // ── Генератор ──
+const VOWELS     = [...'aeiou'];
+const CONSONANTS = [...'bcdfghjklmnprstvwxyz'];
+const SOFT_PAIRS = ['ar','er','or','an','en','on','al','el','ol','ra','re','ro','na','ne','no','la','le','lo','ma','me','mo','sa','se','so','ta','te','to','va','ve','vo','ka','ke','ko','da','de','do','ba','be','bo','fa','fe','fo','ga','ge','go'];
+
 function syllable() {
-  const c = CONSONANTS[Math.floor(Math.random() * CONSONANTS.length)];
-  const v = VOWELS[Math.floor(Math.random() * VOWELS.length)];
-  if (Math.random() < 0.5) return c + v;
-  return c + v + CONSONANTS[Math.floor(Math.random() * CONSONANTS.length)];
+  const c = CONSONANTS[Math.floor(Math.random()*CONSONANTS.length)];
+  const v = VOWELS[Math.floor(Math.random()*VOWELS.length)];
+  return Math.random()<.5 ? c+v : c+v+CONSONANTS[Math.floor(Math.random()*CONSONANTS.length)];
 }
-
 function generateNick(len) {
-  for (let attempt = 0; attempt < 100; attempt++) {
-    let nick = '';
-    while (nick.length < len) {
-      if (Math.random() < 0.4 && nick.length + 2 <= len) {
-        nick += SOFT_PAIRS[Math.floor(Math.random() * SOFT_PAIRS.length)];
-      } else {
-        const syl = syllable();
-        if (nick.length + syl.length <= len) nick += syl;
-        else if (len - nick.length === 1) nick += VOWELS[Math.floor(Math.random() * VOWELS.length)];
-        else break;
-      }
+  for (let i=0;i<100;i++) {
+    let n='';
+    while (n.length<len) {
+      if (Math.random()<.4 && n.length+2<=len) n+=SOFT_PAIRS[Math.floor(Math.random()*SOFT_PAIRS.length)];
+      else { const s=syllable(); if (n.length+s.length<=len) n+=s; else if (len-n.length===1) n+=VOWELS[Math.floor(Math.random()*VOWELS.length)]; else break; }
     }
-    if (nick.length === len) return nick;
+    if (n.length===len) return n;
   }
-  // fallback
-  let nick = '';
-  for (let i = 0; i < len; i++)
-    nick += i % 2 === 0
-      ? CONSONANTS[Math.floor(Math.random() * CONSONANTS.length)]
-      : VOWELS[Math.floor(Math.random() * VOWELS.length)];
-  return nick;
+  let n='';
+  for (let i=0;i<len;i++) n+=i%2===0?CONSONANTS[Math.floor(Math.random()*CONSONANTS.length)]:VOWELS[Math.floor(Math.random()*VOWELS.length)];
+  return n;
 }
 
-// ── Проверка ника через Fragment API ──
+// ── Реальная проверка через твой бэкенд → Telethon → Telegram API ──
 async function checkNick(nick) {
   try {
-    const res = await fetch(`https://fragment.com/username/${nick}`, {
-      method: 'GET', headers: { 'Accept': 'text/html' }
-    });
-    const html = await res.text();
-    // Если Fragment говорит "Available" — свободен
-    if (html.includes('Available') || html.includes('available')) return true;
-    if (html.includes('Unavailable') || html.includes('unavailable') || html.includes('taken')) return false;
-    // Дополнительно: если нет признаков занятости — считаем свободным
-    return !html.includes('is taken') && !html.includes('is not available');
+    const r = await fetch(`${BACKEND}/check?nick=${nick}`, { signal: AbortSignal.timeout(10000) });
+    const j = await r.json();
+    return j.free; // true = свободен, false = занят, null = невалидный
   } catch {
-    return null; // ошибка сети — пропустить
+    return null;
   }
 }
 
 // ── UI хелперы ──
 function setLen(n) {
-  selectedLen = n;
-  document.querySelectorAll('.len-btn').forEach(b => {
-    b.classList.toggle('active', +b.dataset.len === n);
-  });
+  selectedLen=n;
+  document.querySelectorAll('.len-btn').forEach(b=>b.classList.toggle('active',+b.dataset.len===n));
 }
-
-function setStatus(text, mode = '') {
-  document.getElementById('statusText').innerHTML = text;
-  const dot = document.getElementById('dot');
-  dot.className = 'status-dot' + (mode ? ' ' + mode : '');
+function setStatus(text,mode='') {
+  document.getElementById('statusText').innerHTML=text;
+  document.getElementById('dot').className='status-dot'+(mode?' '+mode:'');
 }
-
 function updateStats() {
-  document.getElementById('statChecked').textContent = checked;
-  document.getElementById('statFound').textContent = found;
-  const m = Math.floor(sessionSecs / 60);
-  const s = sessionSecs % 60;
-  document.getElementById('statTime').textContent = m > 0 ? `${m}м ${s}с` : `${s}с`;
+  document.getElementById('statChecked').textContent=checked;
+  document.getElementById('statFound').textContent=found;
+  const m=Math.floor(sessionSecs/60),s=sessionSecs%60;
+  document.getElementById('statTime').textContent=m>0?`${m}м ${s}с`:`${s}с`;
 }
-
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
 }
-
 function addNickCard(nick) {
-  const feed = document.getElementById('feed');
-  const empty = feed.querySelector('.empty-state');
+  const feed=document.getElementById('feed');
+  const empty=feed.querySelector('.empty-state');
   if (empty) empty.remove();
-
-  const now = new Date();
-  const time = now.toTimeString().slice(0,8);
-
-  const card = document.createElement('div');
-  card.className = 'nick-card';
-  card.innerHTML = `
+  const time=new Date().toTimeString().slice(0,8);
+  const card=document.createElement('div');
+  card.className='nick-card';
+  card.innerHTML=`
     <div class="nick-icon">✨</div>
     <div class="nick-info">
       <div class="nick-name">@${nick}</div>
       <span class="nick-link">t.me/${nick}</span>
     </div>
     <span class="nick-time">${time}</span>
-    <button class="copy-btn" onclick="copyNick('${nick}', this)">copy</button>
-  `;
-  feed.insertBefore(card, feed.firstChild);
+    <button class="copy-btn" onclick="copyNick('${nick}',this)">copy</button>`;
+  feed.insertBefore(card,feed.firstChild);
 }
-
-function copyNick(nick, btn) {
-  navigator.clipboard.writeText(`@${nick}`).then(() => {
-    btn.textContent = '✓';
-    btn.classList.add('copied');
+function copyNick(nick,btn) {
+  navigator.clipboard.writeText(`@${nick}`).then(()=>{
+    btn.textContent='✓'; btn.classList.add('copied');
     showToast(`@${nick} скопирован!`);
-    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1500);
+    setTimeout(()=>{btn.textContent='copy';btn.classList.remove('copied');},1500);
   });
 }
-
 function clearFeed() {
-  document.getElementById('feed').innerHTML =
-    '<div class="empty-state"><div>🕵️</div>Свободные ники появятся здесь</div>';
+  document.getElementById('feed').innerHTML='<div class="empty-state"><div>🕵️</div>Свободные ники появятся здесь</div>';
 }
+function setBusy(busy) {
+  document.getElementById('btnStart').disabled=busy;
+  document.getElementById('btnStop').disabled=!busy;
+  document.getElementById('btnOne').disabled=busy;
+  document.querySelectorAll('.len-btn').forEach(b=>b.style.pointerEvents=busy?'none':'');
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
 // ── Поиск ──
-function setBusy(busy) {
-  document.getElementById('btnStart').disabled = busy;
-  document.getElementById('btnStop').disabled = !busy;
-  document.getElementById('btnOne').disabled = busy;
-  document.querySelectorAll('.len-btn').forEach(b => b.style.pointerEvents = busy ? 'none' : '');
-}
-
 async function startSearch() {
   if (isRunning) return;
-  isRunning = true;
-  checked = 0; found = 0; sessionSecs = 0;
-  setBusy(true);
-  updateStats();
-
-  sessionTimer = setInterval(() => { sessionSecs++; updateStats(); }, 1000);
-  setStatus(`<b>Поиск запущен</b> · ${selectedLen} букв`, 'running');
-  loop();
-}
-
-async function loop() {
+  isRunning=true; checked=0; found=0; sessionSecs=0;
+  setBusy(true); updateStats();
+  sessionTimer=setInterval(()=>{sessionSecs++;updateStats();},1000);
+  setStatus(`<b>Поиск запущен</b> · ${selectedLen} букв`,'running');
   while (isRunning) {
-    const nick = generateNick(selectedLen);
-    setStatus(`Проверяю <b>@${nick}</b>...`, 'scanning');
-    const free = await checkNick(nick);
-    if (free === null) { await sleep(500); continue; }
+    const nick=generateNick(selectedLen);
+    setStatus(`Проверяю <b>@${nick}</b>...`,'scanning');
+    const free=await checkNick(nick);
+    if (free===null){await sleep(500);continue;}
     checked++;
-    if (free) {
-      found++;
-      addNickCard(nick);
-      if (tg) tg.HapticFeedback.notificationOccurred('success');
-    }
+    if (free){found++;addNickCard(nick);if(tg)tg.HapticFeedback.notificationOccurred('success');}
     updateStats();
-    setStatus(`Проверяю ники... последний: <b>@${nick}</b>`, 'running');
+    setStatus(`Последний: <b>@${nick}</b> · ${free?'🟢 свободен':'🔴 занят'}`,'running');
     await sleep(3000);
   }
 }
-
 function stopSearch() {
-  isRunning = false;
-  clearInterval(sessionTimer);
-  setBusy(false);
-  setStatus('Поиск остановлен');
-  document.getElementById('dot').className = 'status-dot';
+  isRunning=false; clearInterval(sessionTimer);
+  setBusy(false); setStatus('Поиск остановлен');
+  document.getElementById('dot').className='status-dot';
 }
-
 async function findOne() {
-  if (isRunning || isFindingOne) return;
-  isFindingOne = true;
-  document.getElementById('btnOne').disabled = true;
-  document.getElementById('btnStart').disabled = true;
-  let attempts = 0;
-
+  if (isRunning||isFindingOne) return;
+  isFindingOne=true;
+  document.getElementById('btnOne').disabled=true;
+  document.getElementById('btnStart').disabled=true;
+  let attempts=0;
   while (true) {
-    const nick = generateNick(selectedLen);
+    const nick=generateNick(selectedLen);
     attempts++;
-    setStatus(`🔍 Ищу... попытка <b>${attempts}</b> · @${nick}`, 'scanning');
-    const free = await checkNick(nick);
-    if (free === null) { await sleep(300); continue; }
-    checked++;
-    updateStats();
+    setStatus(`🔍 Попытка <b>${attempts}</b> · @${nick}`,'scanning');
+    const free=await checkNick(nick);
+    if (free===null){await sleep(300);continue;}
+    checked++;updateStats();
     if (free) {
-      found++;
-      updateStats();
-      addNickCard(nick);
-      if (tg) tg.HapticFeedback.notificationOccurred('success');
+      found++;updateStats();addNickCard(nick);
+      if(tg)tg.HapticFeedback.notificationOccurred('success');
       setStatus(`✅ Найдено за <b>${attempts}</b> попыток!`);
-      document.getElementById('dot').className = 'status-dot';
+      document.getElementById('dot').className='status-dot';
       showToast(`Найден @${nick}!`);
       break;
     }
     await sleep(800);
   }
-
-  isFindingOne = false;
-  document.getElementById('btnOne').disabled = false;
-  document.getElementById('btnStart').disabled = false;
+  isFindingOne=false;
+  document.getElementById('btnOne').disabled=false;
+  document.getElementById('btnStart').disabled=false;
 }
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 </script>
 </body>
 </html>
