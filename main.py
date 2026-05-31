@@ -4,12 +4,13 @@ import logging
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from telethon import TelegramClient
+from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError, UsernameInvalidError, UsernameNotOccupiedError
 
-API_ID   = 20776429
-API_HASH = '9c8955cc52c6df7e7c18def50d3838eb'
-BOT_TOKEN = '7253456538:AAHtQz0uC5ZoVFUkZ4653EzpZecoYGFq0Hg'
+API_ID     = 20776429
+API_HASH   = '9c8955cc52c6df7e7c18def50d3838eb'
+BOT_TOKEN  = '7253456538:AAHtQz0uC5ZoVFUkZ4653EzpZecoYGFq0Hg'
+WEBAPP_URL = "https://usernamechecker-o2h7.vercel.app"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,8 +23,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Telethon через бот-токен
-client = TelegramClient('bot_session', API_ID, API_HASH)
+# Два клиента:
+# bot_client  — для приёма /start и отправки сообщений (бот)
+# user_client — для проверки юзернеймов (юзер-сессия)
+bot_client  = TelegramClient('bot_session',  API_ID, API_HASH)
+user_client = TelegramClient('user_session', API_ID, API_HASH)
+
+# ── /start — приветствие ──
+@bot_client.on(events.NewMessage(pattern='/start'))
+async def start_handler(event):
+    sender = await event.get_sender()
+    name = getattr(sender, 'first_name', None) or getattr(sender, 'username', None) or "пользователь"
+
+    buttons = bot_client.build_reply_markup([
+        [{"text": "🔎 Открыть Nick Checker", "url": WEBAPP_URL}]
+    ])
+
+    await event.respond(
+        f"Привет, **{name}** 👋\n\n"
+        f"Добро пожаловать в **Nick Checker**.\n\n"
+        f"Я — ваш инструмент для поиска свободных юзернеймов в Telegram. "
+        f"Чтобы начать проверку, просто запустите Mini App через кнопку «Открыть» внизу.\n\n"
+        f"🚀 _Система полностью готова к работе._",
+        buttons=buttons
+    )
 
 # ── Генератор произносимых ников ──
 VOWELS     = list("aeiou")
@@ -62,34 +85,19 @@ def generate_nick(length: int = 5) -> str:
         n += CONSONANTS[random.randint(0,len(CONSONANTS)-1)] if i%2==0 else VOWELS[random.randint(0,len(VOWELS)-1)]
     return n
 
-# ── Проверка Fragment (продаётся ли ник) ──
+# ── Проверка Fragment ──
 async def check_fragment(nick: str) -> dict:
-    """
-    Возвращает:
-      {"on_sale": True,  "price": "500 TON"}  — выставлен на продажу
-      {"on_sale": False, "price": None}        — не на продаже
-      {"on_sale": None,  "price": None}        — ошибка запроса
-    """
     try:
+        import re
         url = f"https://fragment.com/username/{nick}"
         headers = {"User-Agent": "Mozilla/5.0"}
         async with httpx.AsyncClient(timeout=6) as hc:
             r = await hc.get(url, headers=headers)
         text = r.text.lower()
-
         if "buy for" in text or "place a bid" in text or "auction" in text:
-            # Пробуем вытащить цену
-            import re
             price_match = re.search(r'([\d,]+)\s*ton', r.text, re.IGNORECASE)
             price = price_match.group(0) if price_match else "?"
             return {"on_sale": True, "price": price}
-
-        if "is available" in text:
-            return {"on_sale": False, "price": None}
-
-        if "taken" in text or "unavailable" in text:
-            return {"on_sale": False, "price": None}
-
         return {"on_sale": False, "price": None}
     except Exception as e:
         logger.warning(f"Fragment check error for {nick}: {e}")
@@ -98,20 +106,24 @@ async def check_fragment(nick: str) -> dict:
 # ── Эндпоинты ──
 @app.get("/health")
 async def health():
-    return {"status": "ok", "connected": client.is_connected()}
+    return {
+        "status": "ok",
+        "bot_connected":  bot_client.is_connected(),
+        "user_connected": user_client.is_connected(),
+    }
 
 @app.get("/check")
 async def check_nick(nick: str = None, length: int = 5):
     if not nick:
         nick = generate_nick(length)
 
-    # 1. Проверяем через Telegram API — занят ли ник
+    # Проверка через user_client (юзер-сессия умеет резолвить юзернеймы)
     telegram_free = False
     try:
-        await client.get_entity(nick)
-        telegram_free = False   # нашли — занят
+        await user_client.get_entity(nick)
+        telegram_free = False
     except (ValueError, UsernameNotOccupiedError):
-        telegram_free = True    # не нашли — свободен
+        telegram_free = True
     except UsernameInvalidError:
         return {"nick": nick, "free": None, "on_sale": None, "price": None, "reason": "invalid"}
     except FloodWaitError as e:
@@ -121,24 +133,31 @@ async def check_nick(nick: str = None, length: int = 5):
         logger.error(f"Telegram check error: {e}")
         return {"nick": nick, "free": None, "on_sale": None, "price": None, "reason": str(e)}
 
-    # 2. Проверяем Fragment — не продаётся ли
     fragment = await check_fragment(nick)
 
     return {
-        "nick":     nick,
-        "free":     telegram_free,          # True = свободен в Telegram
-        "on_sale":  fragment["on_sale"],    # True = выставлен на Fragment
-        "price":    fragment["price"],      # "500 TON" или None
+        "nick":    nick,
+        "free":    telegram_free,
+        "on_sale": fragment["on_sale"],
+        "price":   fragment["price"],
     }
 
 @app.on_event("startup")
 async def startup():
-    await client.start(bot_token=BOT_TOKEN)
-    logger.info("✅ Бот запущен через токен!")
+    # Бот — через токен (для /start и сообщений)
+    await bot_client.start(bot_token=BOT_TOKEN)
+    logger.info("✅ Бот запущен!")
+
+    # Юзер — через сессию (для проверки юзернеймов)
+    await user_client.start()
+    logger.info("✅ Юзер-клиент запущен!")
+
+    asyncio.get_event_loop().create_task(bot_client.run_until_disconnected())
 
 @app.on_event("shutdown")
 async def shutdown():
-    await client.disconnect()
+    await bot_client.disconnect()
+    await user_client.disconnect()
 
 if __name__ == "__main__":
     import uvicorn
