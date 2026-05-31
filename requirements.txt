@@ -1,5 +1,5 @@
-aiogram
-telethon
 fastapi
 uvicorn
-aiohttp
+telethon
+requests
+beautifulsoup4
