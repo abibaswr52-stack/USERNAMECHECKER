@@ -29,23 +29,23 @@ app.add_middleware(
 bot_client  = TelegramClient('bot_session',  API_ID, API_HASH)
 user_client = TelegramClient('user_session', API_ID, API_HASH)
 
+
 # ── /start — приветствие ──
 @bot_client.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
+    from telethon.tl.custom import Button
     sender = await event.get_sender()
     name = getattr(sender, 'first_name', None) or getattr(sender, 'username', None) or "пользователь"
-
-    buttons = bot_client.build_reply_markup([
-        [{"text": "🔎 Открыть Nick Checker", "url": WEBAPP_URL}]
-    ])
-
-    await event.respond(
-        f"Привет, **{name}** 👋\n\n"
-        f"Добро пожаловать в **Nick Checker**.\n\n"
+    text = (
+        f"Привет, {name} 👋\n\n"
+        f"Добро пожаловать в Nick Checker.\n\n"
         f"Я — ваш инструмент для поиска свободных юзернеймов в Telegram. "
         f"Чтобы начать проверку, просто запустите Mini App через кнопку «Открыть» внизу.\n\n"
-        f"🚀 _Система полностью готова к работе._",
-        buttons=buttons
+        f"🚀 Система полностью готова к работе."
+    )
+    await event.respond(
+        text,
+        buttons=[Button.url("🔎 Открыть Nick Checker", WEBAPP_URL)]
     )
 
 # ── Генератор произносимых ников ──
