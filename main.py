@@ -1,31 +1,51 @@
 import asyncio
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from telethon import TelegramClient
+from telethon.errors import UsernameInvalidError, UsernameNotOccupiedError, FloodWaitError
 
-BOT_TOKEN = '7253456538:AAHtQz0uC5ZoVFUkZ4653EzpZecoYGFq0Hg'
-WEBAPP_URL = "https://usernamechecker-o2h7.vercel.app"
+API_ID = 20776429
+API_HASH = '9c8955cc52c6df7e7c18def50d3838eb'
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+# Инициализация клиента
+client = TelegramClient('checker_session', API_ID, API_HASH)
 
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="🔎 Открыть Nick Checker",
-            web_app=WebAppInfo(url=WEBAPP_URL)
-        )]
-    ])
-    await message.answer(
-        "👋 Привет!\nНажми кнопку ниже чтобы открыть <b>Nick Checker</b>.",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Код при старте
+    await client.start()
+    print("✅ Telethon клиент запущен")
+    yield
+    # Код при выключении
+    await client.disconnect()
 
-async def main():
-    print("🤖 Бот запущен...")
-    await dp.start_polling(bot)
+app = FastAPI(lifespan=lifespan)
 
-if __name__ == '__main__':
-    asyncio.run(main())
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "connected": client.is_connected()}
+
+@app.get("/check")
+async def check_nick(nick: str):
+    try:
+        # Убираем @, если пользователь прислал с ним
+        nick = nick.replace("@", "")
+        await client.get_entity(nick)
+        return {"nick": nick, "free": False}
+    except (ValueError, UsernameNotOccupiedError):
+        return {"nick": nick, "free": True}
+    except UsernameInvalidError:
+        return {"nick": nick, "free": None, "reason": "invalid"}
+    except FloodWaitError as e:
+        await asyncio.sleep(e.seconds + 1)
+        return {"nick": nick, "free": None, "reason": "flood"}
+    except Exception as e:
+        return {"nick": nick, "free": None, "error": str(e)}
