@@ -1,0 +1,279 @@
+import asyncio
+import random
+from datetime import datetime
+from telethon import TelegramClient
+from telethon.errors import UsernameInvalidError, UsernameNotOccupiedError, FloodWaitError
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# --- НАСТРОЙКИ ---
+API_ID = 20776429
+API_HASH = '9c8955cc52c6df7e7c18def50d3838eb'
+BOT_TOKEN = '7253456538:AAHtQz0uC5ZoVFUkZ4653EzpZecoYGFq0Hg'
+ADMIN_ID = 1411441331
+
+# --- ИНИЦИАЛИЗАЦИЯ ---
+client = TelegramClient('checker_session', API_ID, API_HASH)
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
+
+is_running = False
+selected_length = 5
+stats = {"checked": 0, "found": 0, "session_start": None}
+
+# ─────────────────────────────────────────
+#  ГЕНЕРАТОР ПРОИЗНОСИМЫХ НИКОВ
+# ─────────────────────────────────────────
+VOWELS     = list("aeiou")
+CONSONANTS = list("bcdfghjklmnprstvwxyz")
+SOFT_PAIRS = [
+    "ar","er","or","an","en","on","al","el","ol",
+    "ra","re","ro","na","ne","no","la","le","lo",
+    "ma","me","mo","sa","se","so","ta","te","to",
+    "va","ve","vo","ka","ke","ko","da","de","do",
+    "ba","be","bo","fa","fe","fo","ga","ge","go",
+]
+
+def syllable():
+    c = random.choice(CONSONANTS)
+    v = random.choice(VOWELS)
+    if random.random() < 0.5:
+        return c + v
+    return c + v + random.choice(CONSONANTS)
+
+def generate_nice_nick(length: int = 5) -> str:
+    for _ in range(100):
+        nick = ""
+        while len(nick) < length:
+            if random.random() < 0.4 and len(nick) + 2 <= length:
+                nick += random.choice(SOFT_PAIRS)
+            else:
+                syl = syllable()
+                if len(nick) + len(syl) <= length:
+                    nick += syl
+                else:
+                    remaining = length - len(nick)
+                    if remaining == 1:
+                        nick += random.choice(VOWELS)
+                    break
+        if len(nick) == length:
+            return nick
+    # fallback: простая генерация если вдруг зациклилось
+    return "".join(
+        random.choice(CONSONANTS if i % 2 == 0 else VOWELS)
+        for i in range(length)
+    )
+
+# ─────────────────────────────────────────
+#  ПРОВЕРКА НИКА
+# ─────────────────────────────────────────
+async def check_nick(nick: str):
+    try:
+        await client.get_entity(nick)
+        return False, nick                    # занят
+    except (ValueError, UsernameNotOccupiedError):
+        return True, nick                     # свободен
+    except UsernameInvalidError:
+        return None, nick                     # невалидный — пропустить
+    except FloodWaitError as e:
+        await asyncio.sleep(e.seconds + 2)
+        return False, nick
+    except Exception:
+        return None, nick                     # любая другая ошибка — пропустить
+
+# ─────────────────────────────────────────
+#  КЛАВИАТУРЫ
+# ─────────────────────────────────────────
+def get_main_kb():
+    marks = {5: "", 6: "", 7: ""}
+    marks[selected_length] = " ✅"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="▶️ Запустить", callback_data="start"),
+            InlineKeyboardButton(text="⏹ Остановить", callback_data="stop"),
+        ],
+        [
+            InlineKeyboardButton(text="🔍 Найти один свободный", callback_data="check_one"),
+        ],
+        [
+            InlineKeyboardButton(text=f"5 букв{marks[5]}", callback_data="len_5"),
+            InlineKeyboardButton(text=f"6 букв{marks[6]}", callback_data="len_6"),
+            InlineKeyboardButton(text=f"7 букв{marks[7]}", callback_data="len_7"),
+        ],
+        [
+            InlineKeyboardButton(text="📊 Статистика", callback_data="stats"),
+        ],
+    ])
+
+def get_running_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⏹ Остановить поиск", callback_data="stop")],
+        [InlineKeyboardButton(text="📊 Статистика", callback_data="stats")],
+    ])
+
+# ─────────────────────────────────────────
+#  ФОРМАТИРОВАНИЕ
+# ─────────────────────────────────────────
+def fmt_free(nick: str) -> str:
+    return (
+        f"🟢 <b>Свободный ник найден!</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"👤  <code>@{nick}</code>\n"
+        f"📏  Длина: <b>{len(nick)} символа</b>\n"
+        f"🔗  <a href='https://t.me/{nick}'>t.me/{nick}</a>\n"
+        f"🌐  <code>{nick}.t.me</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"⏰  {datetime.now().strftime('%H:%M:%S')}"
+    )
+
+def fmt_stats() -> str:
+    elapsed = "—"
+    if stats["session_start"]:
+        secs = int((datetime.now() - stats["session_start"]).total_seconds())
+        elapsed = f"{secs // 60}м {secs % 60}с"
+    return (
+        f"📊 <b>Статистика сессии</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📏  Длина ника:  <b>{selected_length} букв</b>\n"
+        f"🔍  Проверено:  <b>{stats['checked']}</b>\n"
+        f"✅  Найдено:    <b>{stats['found']}</b>\n"
+        f"⏱  Время:      <b>{elapsed}</b>\n"
+        f"⚡  Статус:     {'<b>🟢 Работает</b>' if is_running else '<b>🔴 Остановлен</b>'}\n"
+        f"━━━━━━━━━━━━━━━━━━━"
+    )
+
+def welcome_banner() -> str:
+    return (
+        "╔═══════════════════════╗\n"
+        "║  🔎  <b>Nick Checker Bot</b>   ║\n"
+        "╚═══════════════════════╝\n\n"
+        "Ищу красивые, произносимые и свободные ники в Telegram.\n\n"
+        "📏 Выбери длину (5, 6 или 7 букв) и запускай поиск!\n\n"
+        "👇 Панель управления:"
+    )
+
+# ─────────────────────────────────────────
+#  ОБРАБОТЧИКИ
+# ─────────────────────────────────────────
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    await message.answer(welcome_banner(), reply_markup=get_main_kb(), parse_mode="HTML")
+
+@dp.message(Command("stats"))
+async def cmd_stats(message: types.Message):
+    await message.answer(fmt_stats(), reply_markup=get_main_kb(), parse_mode="HTML")
+
+# ── Выбор длины ──────────────────────────
+@dp.callback_query(F.data.in_({"len_5", "len_6", "len_7"}))
+async def cb_set_length(call: types.CallbackQuery):
+    global selected_length
+    if is_running:
+        await call.answer("⚠️ Сначала останови поиск!", show_alert=True)
+        return
+    selected_length = int(call.data.split("_")[1])
+    await call.answer(f"✅ Длина: {selected_length} букв")
+    # обновляем клавиатуру на месте (галочка переедет)
+    await call.message.edit_reply_markup(reply_markup=get_main_kb())
+
+# ── Запуск поиска ──────────────────────────
+@dp.callback_query(F.data == "start")
+async def cb_start(call: types.CallbackQuery):
+    global is_running
+    if is_running:
+        await call.answer("⚠️ Поиск уже запущен!", show_alert=True)
+        return
+
+    is_running = True
+    stats["session_start"] = datetime.now()
+    stats["checked"] = 0
+    stats["found"] = 0
+    await call.answer()
+
+    await call.message.answer(
+        f"🚀 <b>Поиск запущен!</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"📏 Длина ника: <b>{selected_length} букв</b>\n"
+        f"⏱ Проверяю каждые 5 секунд.\n"
+        f"Свободные ники появятся здесь 👇",
+        reply_markup=get_running_kb(),
+        parse_mode="HTML"
+    )
+
+    while is_running:
+        nick = generate_nice_nick(selected_length)
+        result, nick = await check_nick(nick)
+        if result is None:
+            # невалидный ник — пропускаем без счётчика
+            continue
+        stats["checked"] += 1
+        if result:
+            stats["found"] += 1
+            await call.message.answer(fmt_free(nick), parse_mode="HTML", disable_web_page_preview=True)
+        await asyncio.sleep(5)
+
+# ── Остановка ─────────────────────────────
+@dp.callback_query(F.data == "stop")
+async def cb_stop(call: types.CallbackQuery):
+    global is_running
+    if not is_running:
+        await call.answer("Поиск и так не запущен.", show_alert=True)
+        return
+    is_running = False
+    await call.answer()
+    await call.message.answer(
+        f"⏹ <b>Поиск остановлен.</b>\n\n{fmt_stats()}",
+        reply_markup=get_main_kb(),
+        parse_mode="HTML"
+    )
+
+# ── Найти один свободный ──────────────────
+@dp.callback_query(F.data == "check_one")
+async def cb_check_one(call: types.CallbackQuery):
+    await call.answer("⏳ Ищу...")
+    status_msg = await call.message.answer(
+        f"🔄 <b>Ищу свободный ник ({selected_length} букв)...</b>\n"
+        f"<i>Это может занять несколько секунд.</i>",
+        parse_mode="HTML"
+    )
+    attempts = 0
+    while True:
+        nick = generate_nice_nick(selected_length)
+        result, nick = await check_nick(nick)
+        if result is None:
+            continue  # невалидный — пропускаем
+        stats["checked"] += 1
+        attempts += 1
+        if result:
+            stats["found"] += 1
+            await status_msg.edit_text(
+                f"✅ <b>Найдено за {attempts} попыток!</b>\n\n{fmt_free(nick)}",
+                parse_mode="HTML",
+                disable_web_page_preview=True
+            )
+            break
+        if attempts % 5 == 0:
+            await status_msg.edit_text(
+                f"🔄 <b>Ищу свободный ник ({selected_length} букв)...</b>\n"
+                f"Проверено: <b>{attempts}</b> вариантов, продолжаю...",
+                parse_mode="HTML"
+            )
+        await asyncio.sleep(1)
+
+# ── Статистика ────────────────────────────
+@dp.callback_query(F.data == "stats")
+async def cb_stats(call: types.CallbackQuery):
+    await call.answer()
+    await call.message.answer(fmt_stats(), reply_markup=get_main_kb(), parse_mode="HTML")
+
+# ─────────────────────────────────────────
+#  ЗАПУСК
+# ─────────────────────────────────────────
+async def main():
+    await client.start()
+    print("✅ Telethon клиент запущен")
+    print("🤖 Бот запущен, ожидаю команды...")
+    await dp.start_polling(bot)
+
+if __name__ == '__main__':
+    asyncio.run(main())
