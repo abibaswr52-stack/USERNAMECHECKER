@@ -1,67 +1,64 @@
 import os
-import uvicorn
+import random
 import logging
+import requests
+from bs4 import BeautifulSoup
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from telethon import TelegramClient, events
+from telethon import TelegramClient
+from telethon.errors import FloodWaitError, UsernameInvalidError
 
-# Настройка логов
+# --- ВСТАВЬ СЮДА СВОИ ДАННЫЕ ---
+API_ID = 20776429 
+API_HASH = '9c8955cc52c6df7e7c18def50d3838eb'
+BOT_TOKEN = '7253456538:AAHtQz0uC5ZoVFUkZ4653EzpZecoYGFq0Hg' 
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- ВАШИ ДАННЫЕ ---
-API_ID = 20776429
-API_HASH = '9c8955cc52c6df7e7c18def50d3838eb'
-BOT_TOKEN = '7253456538:AAHtQz0uC5ZoVFUkZ4653EzpZecoYGFq0Hg' # <--- ВСТАВЬТЕ СЮДА ВАШ ТОКЕН
-
 app = FastAPI()
+client = TelegramClient('bot_session', API_ID, API_HASH)
 
-# Разрешаем CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Генератор 5-6-7 символьных ников
+def generate_nick():
+    v = "aeiou"
+    c = "bcdfghjklmnprstvw"
+    s = "lnrm"
+    # Случайная длина 5, 6 или 7
+    length = random.choice([5, 6, 7])
+    nick = "".join(random.choice(c) + random.choice(v) for _ in range(length // 2))
+    if length % 2 != 0: nick += random.choice(c)
+    return nick
 
-client = TelegramClient('bot', API_ID, API_HASH)
-
-# Приветствие без кнопок
-@client.on(events.NewMessage(pattern='/start'))
-async def start_handler(event):
-    sender = await event.get_sender()
-    name = sender.first_name if sender else "Друг"
-    
-    welcome_text = (
-        f"**Привет, {name}!** 👋\n\n"
-        "Добро пожаловать в **Nick Checker**.\n\n"
-        "Я — ваш инструмент для поиска свободных юзернеймов в Telegram. "
-        "Чтобы начать проверку, просто запустите **Mini App** через кнопку «Открыть» (Open) внизу экрана или в меню бота.\n\n"
-        "🚀 *Система полностью готова к работе.*"
-    )
-    
-    await event.respond(welcome_text)
-
-# Запуск клиента
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Запуск Telegram бота...")
-    await client.start(bot_token=BOT_TOKEN)
-    logger.info("✅ Бот успешно запущен!")
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
+# Проверка Fragment
+def check_fragment(nick):
+    try:
+        url = f"https://fragment.com/username/{nick}"
+        r = requests.get(url, timeout=3)
+        if "is available" in r.text.lower(): return "FREE"
+        if "taken" in r.text.lower(): return "TAKEN"
+        return "UNKNOWN"
+    except: return "ERROR"
 
 @app.get("/check")
-async def check_nick(nick: str):
+async def check_nick(nick: str = None):
+    if not nick: nick = generate_nick()
+    
     try:
-        nick = nick.replace("@", "").strip()
         await client.get_entity(nick)
-        return {"nick": nick, "free": False}
-    except Exception:
+        # Если занят — проверяем статус на Fragment
+        return {"nick": nick, "free": False, "fragment": check_fragment(nick)}
+    except ValueError:
         return {"nick": nick, "free": True}
+    except FloodWaitError as e:
+        return {"error": "flood_wait", "seconds": e.seconds}
+    except Exception:
+        return {"error": "invalid_or_error"}
+
+@app.on_event("startup")
+async def startup():
+    await client.start(bot_token=BOT_TOKEN)
+    logger.info("✅ Бот и Checker запущены!")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=10000)
