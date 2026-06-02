@@ -7,9 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError, UsernameInvalidError, UsernameNotOccupiedError
 
-API_ID     = 20776429
-API_HASH   = '9c8955cc52c6df7e7c18def50d3838eb'
-BOT_TOKEN  = '7253456538:AAHtQz0uC5ZoVFUkZ4653EzpZecoYGFq0Hg'
+API_ID     = хуй тебе сучка
+API_HASH   = 'соси мамкин хакер'
+BOT_TOKEN  = 'пшел нахуй с моего проекта'
 WEBAPP_URL = "https://usernamechecker-o2h7.vercel.app"
 
 logging.basicConfig(level=logging.INFO)
